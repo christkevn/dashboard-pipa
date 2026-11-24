@@ -13,8 +13,6 @@ export type Result = {
   tabel: Row[];
 };
 
-const BASE = process.env.API_BASE_URL!;
-const KEY = process.env.API_KEY!;
 
 type Raw = Record<string, string>;
 const num = (v: unknown) => parseFloat(String(v ?? "0")) || 0;
@@ -26,12 +24,21 @@ const addDays = (s: string, n: number) => {
 };
 
 async function call(endpoint: string, body: object): Promise<Raw[]> {
-  const res = await fetch(`${BASE}/${endpoint}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": KEY },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
+  const BASE = process.env.API_BASE_URL;
+  const KEY = process.env.API_KEY;
+  if (!BASE || !KEY) throw new Error("Environment variable API_BASE_URL / API_KEY belum diisi di server (Vercel > Settings > Environment Variables)");
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": KEY },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+  } catch (e) {
+    const c = (e as { cause?: { code?: string; message?: string } }).cause;
+    throw new Error(`Tidak bisa terhubung ke API (${c?.code || c?.message || (e as Error).message})`);
+  }
   if (!res.ok) throw new Error(`API ${endpoint} gagal (HTTP ${res.status})`);
   const data = await res.json();
   return Array.isArray(data) ? data : [];

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+export const preferredRegion = "sin1";
 import { NextRequest, NextResponse } from "next/server";
 import { getProduksi, type Cabang, type Periode } from "@/lib/produksi";
 
