@@ -24,14 +24,17 @@ const addDays = (s: string, n: number) => {
 };
 
 async function call(endpoint: string, body: object): Promise<Raw[]> {
+  const RELAY = process.env.RELAY_URL;
   const BASE = process.env.API_BASE_URL;
   const KEY = process.env.API_KEY;
-  if (!BASE || !KEY) throw new Error("Environment variable API_BASE_URL / API_KEY belum diisi di server (Vercel > Settings > Environment Variables)");
+  if (!RELAY && (!BASE || !KEY)) throw new Error("Isi RELAY_URL + RELAY_TOKEN, atau API_BASE_URL + API_KEY, di Environment Variables");
+  const url = RELAY ? `${RELAY}?e=${endpoint}` : `${BASE}/${endpoint}`;
+  const auth: Record<string, string> = RELAY ? { "x-relay-token": process.env.RELAY_TOKEN ?? "" } : { "x-api-key": KEY! };
   let res: Response;
   try {
-    res = await fetch(`${BASE}/${endpoint}`, {
+    res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": KEY },
+      headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify(body),
       cache: "no-store",
     });
@@ -39,7 +42,10 @@ async function call(endpoint: string, body: object): Promise<Raw[]> {
     const c = (e as { cause?: { code?: string; message?: string } }).cause;
     throw new Error(`Tidak bisa terhubung ke API (${c?.code || c?.message || (e as Error).message})`);
   }
-  if (!res.ok) throw new Error(`API ${endpoint} gagal (HTTP ${res.status})`);
+  if (!res.ok) {
+    const txt = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 300);
+    throw new Error(`API ${endpoint} gagal (HTTP ${res.status}) ${txt}`);
+  }
   const data = await res.json();
   return Array.isArray(data) ? data : [];
 }
